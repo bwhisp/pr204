@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <poll.h>
 
 /* variables globales */
 #define MAXNAME 256
@@ -33,10 +35,15 @@ int main(int argc, char *argv[]) {
 		int i = 0;
 		char ** machines;
 		char ** newargv;
-		int * fdouts;
-		int * fderrs;
+		struct pollfd * pfds;
+		//int * fdouts;
+		//int * fderrs;
+		int port;
 		int fdout[2];
 		int fderr[2];
+		int k, r;
+		int listen_sock;
+		char *buf = malloc(MAXNAME);
 
 		FILE * machinefile = fopen(argv[1], "r"); //ouvrir le fichier machinefile
 		if (machinefile == NULL) {
@@ -52,7 +59,7 @@ int main(int argc, char *argv[]) {
 			if (fgetc(machinefile) == '\n')
 				num_procs++;
 		}
-		printf("%i\n", num_procs);
+		printf("Nombre de machines lues : %i\n", num_procs);
 		fseek(machinefile, 0, SEEK_SET); //reprendre le fichier dés le début
 
 		machines = malloc(num_procs * MAXNAME);
@@ -71,16 +78,22 @@ int main(int argc, char *argv[]) {
 
 		/* creation de la socket d'ecoute */
 		/* + ecoute effective */
+		listen_sock = creer_socket(SOCK_STREAM, &port);
+		puts("Socket d'écoute initialisée");
 
-		fdouts = malloc (num_procs * sizeof(int));
-		fderrs = malloc (num_procs * sizeof(int));
+		/* On alloue la place nécessaire au stockage des fd des tubes que l'on créera*/
+		pfds = malloc(num_procs * 2 * sizeof(struct pollfd)); // 2 tubes par processus fils
+//		fdouts = malloc(num_procs * sizeof(int));
+//		fderrs = malloc(num_procs * sizeof(int));
+
 		/* creation des fils */
 		for (i = 0; i < num_procs; i++) {
-
 			/* creation du tube pour rediriger stdout */
-			pipe(fdout);
+			if (pipe(fdout) == -1)
+				perror("Erreur tube fdout");
 			/* creation du tube pour rediriger stderr */
-			pipe(fderr);
+			if (pipe(fderr) == -1)
+				perror("Erreur tube fderr");
 
 			pid = fork();
 			if (pid == -1)
@@ -88,41 +101,51 @@ int main(int argc, char *argv[]) {
 
 			if (pid == 0) { /* fils */
 
-				/* redirection stdout */
-				close(STDOUT_FILENO);
-				dup(fdout[1]);
-				close(fdout[1]);
-				close(fdout[0]);
-
 				/* redirection stderr */
+				close(fderr[0]);
 				close(STDERR_FILENO);
 				dup(fderr[1]);
 				close(fderr[1]);
-				close(fderr[0]);
+				puts("redirection faite");
 
-				/* Creation du tableau d'arguments pour le ssh */ // Faut mettre ssh machine@addr prog argz
-				newargv = malloc((argc-3) * MAXNAME); //argc-3: pour virer les 3 premiers arguments (dsm.. machinefile truc)
-				for (i = 0; i < argc-3; i++) {
-					newargv[i] = malloc(MAXNAME);
+				/* redirection stdout */
+				close(fdout[0]);
+				close(STDOUT_FILENO);
+				dup(fdout[1]);
+				close(fdout[1]);
+
+				puts("arguments ssh");
+				/* Creation du tableau d'arguments pour le ssh */
+				newargv = malloc(argc * MAXNAME);
+				for (k = 0; k < argc; k++) {
+					newargv[k] = malloc(MAXNAME);
 				}
+				newargv[0] = "ssh";
+				newargv[1] = machines[i];
+				for (k = 2; k < argc; k++)
+					newargv[k] = argv[k];
 
 				/* jump to new prog : */
-				/* execvp("ssh",newargv); */
+				puts("Execution de ssh");
+				execvp("ssh", newargv);
 
 			} else if (pid > 0) { /* pere */
 				/* fermeture des extremites des tubes non utiles */
 				close(fdout[1]);
 				close(fderr[1]);
-				fdouts[i]= fdout[0];
-				fderrs[i]= fderr[0];
+				pfds[2 * i].fd = fdout[0];  // 2i
+				pfds[2 * i].events = POLLIN | POLLPRI;
+				pfds[2 * i + 1].fd = fderr[0]; // 2i+1
+				pfds[2 * i + 1].events = POLLIN | POLLPRI;
 				num_procs_creat++;
+
 			}
 		}
 
 		for (i = 0; i < num_procs; i++) {
 
 			/* on accepte les connexions des processus dsm */
-
+			//accept();
 			/*  On recupere le nom de la machine distante */
 			/* 1- d'abord la taille de la chaine */
 			/* 2- puis la chaine elle-meme */
@@ -141,20 +164,33 @@ int main(int argc, char *argv[]) {
 
 		/* gestion des E/S : on recupere les caracteres */
 		/* sur les tubes de redirection de stdout/stderr */
-		/* while(1)
-		 {
-		 je recupere les infos sur les tubes de redirection
-		 jusqu'à ce qu'ils soient inactifs (ie fermes par les
-		 processus dsm ecrivains de l'autre cote ...)
-
-		 };
-		 */
+		while (1) {
+			/* je recupere les infos sur les tubes de redirection
+			 jusqu'à ce qu'ils soient inactifs (ie fermes par les
+			 processus dsm ecrivains de l'autre cote ...)*/
+			poll(pfds, num_procs * 2, -1);
+			for (i = 0; i < num_procs * 2; i++) {
+				if (pfds[i].revents == POLLIN) {
+					r = read(pfds[i].fd, buf, MAXNAME);
+					if (!r) {
+						perror("Erreur de lecture");
+					} else {
+						printf("le message: %s \n", buf);
+					}
+				}
+			}
+		}
 
 		/* on attend les processus fils */
 
 		/* on ferme les descripteurs proprement */
-
+		for (i = 0; i < 2 * num_procs; i++) {
+			close(pfds[i].fd);
+		}
+		free(pfds);
+		free(buf);
 		/* on ferme la socket d'ecoute */
+		close(listen_sock);
 	}
 	exit(EXIT_SUCCESS);
 }

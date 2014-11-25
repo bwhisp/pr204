@@ -9,7 +9,7 @@
 #include <fcntl.h>
 
 /* autres includes (eventuellement) */
-
+#define BACKLOG 20
 #define ERROR_EXIT(str) {perror(str);exit(EXIT_FAILURE);}
 
 /* definition du type des infos */
@@ -29,3 +29,4 @@ struct dsm_proc {
 typedef struct dsm_proc dsm_proc_t;
 
 int creer_socket(int type, int *port_num);
+struct sockaddr_in init_addr (struct sockaddr_in addr_in);
