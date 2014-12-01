@@ -33,17 +33,14 @@ int main(int argc, char *argv[]) {
 		pid_t pid;
 		int num_procs = 0;
 		int i = 0;
+		int port, k, r, listen_sock;
+		int fdout[2], fderr[2];
 		char ** machines;
 		char ** newargv;
-		struct pollfd * pfds;
-		//int * fdouts;
-		//int * fderrs;
-		int port;
-		int fdout[2];
-		int fderr[2];
-		int k, r;
-		int listen_sock;
 		char *buf = malloc(MAXNAME);
+		struct pollfd * pfds;
+		struct sockaddr_in c_addr;
+		socklen_t addrlen = (socklen_t) sizeof(struct sockaddr_in);
 
 		FILE * machinefile = fopen(argv[1], "r"); //ouvrir le fichier machinefile
 		if (machinefile == NULL) {
@@ -83,8 +80,7 @@ int main(int argc, char *argv[]) {
 
 		/* On alloue la place nécessaire au stockage des fd des tubes que l'on créera*/
 		pfds = malloc(num_procs * 2 * sizeof(struct pollfd)); // 2 tubes par processus fils
-//		fdouts = malloc(num_procs * sizeof(int));
-//		fderrs = malloc(num_procs * sizeof(int));
+		proc_array = malloc(num_procs * sizeof(dsm_proc_t));
 
 		/* creation des fils */
 		for (i = 0; i < num_procs; i++) {
@@ -101,6 +97,8 @@ int main(int argc, char *argv[]) {
 
 			if (pid == 0) { /* fils */
 
+				free(proc_array); // car les fils ne s'en servent pas , cest le pere qui s'en charge
+
 				/* redirection stderr */
 				close(fderr[0]);
 				close(STDERR_FILENO);
@@ -113,30 +111,45 @@ int main(int argc, char *argv[]) {
 				close(STDOUT_FILENO);
 				dup(fdout[1]);
 				close(fdout[1]);
+				puts("redirection faite");
 
 				puts("arguments ssh");
 				/* Creation du tableau d'arguments pour le ssh */
-				newargv = malloc(argc * MAXNAME);
-				for (k = 0; k < argc; k++) {
+				newargv = malloc((argc + 3) * MAXNAME);
+				for (k = 0; k < argc + 2; k++) {
 					newargv[k] = malloc(MAXNAME);
 				}
 				newargv[0] = "ssh";
 				newargv[1] = machines[i];
-				for (k = 2; k < argc; k++)
-					newargv[k] = argv[k];
+				newargv[2] = "./dsmwrap";
+				newargv[3] = machines[i];
+				sprintf(newargv[4],"%i",port);
+
+				for (k = 5; k < argc + 3; k++)
+					newargv[k] = argv[k - 2];
+
+				newargv[argc+3]= NULL;
 
 				/* jump to new prog : */
 				puts("Execution de ssh");
-				execvp("ssh", newargv);
+				if (execvp("ssh", newargv) );
 
 			} else if (pid > 0) { /* pere */
 				/* fermeture des extremites des tubes non utiles */
 				close(fdout[1]);
 				close(fderr[1]);
+
+				// on remplit le tablea des pollfd
 				pfds[2 * i].fd = fdout[0];  // 2i
 				pfds[2 * i].events = POLLIN | POLLPRI;
 				pfds[2 * i + 1].fd = fderr[0]; // 2i+1
 				pfds[2 * i + 1].events = POLLIN | POLLPRI;
+
+				// on remplit proc array
+				proc_array[i].pid = pid;
+				sprintf(proc_array[i].info.machine, "%s", machines[i]);
+				proc_array[i].info.rank = i;
+
 				num_procs_creat++;
 
 			}
@@ -145,21 +158,41 @@ int main(int argc, char *argv[]) {
 		for (i = 0; i < num_procs; i++) {
 
 			/* on accepte les connexions des processus dsm */
-			//accept();
+			do {
+			proc_array[i].info.sockfd = accept(listen_sock,
+					(struct sockaddr *) &c_addr, &addrlen);
+			} while (proc_array[i].info.sockfd < 0);
+
+			if (proc_array[i].info.sockfd < 0)
+				perror("Erreur de connection");
+
 			/*  On recupere le nom de la machine distante */
 			/* 1- d'abord la taille de la chaine */
+
 			/* 2- puis la chaine elle-meme */
+			read(proc_array[i].info.sockfd, buf, sizeof(buf));
+			printf("Le nom de la machine: %s \n", buf);
 
 			/* On recupere le pid du processus distant  */
+			read(proc_array[i].info.sockfd, buf, sizeof(buf));
+			printf("Le pid du processus: %s \n", buf); // ??
 
 			/* On recupere le numero de port de la socket */
 			/* d'ecoute des processus distants */
+			read(proc_array[i].info.sockfd, buf, sizeof(buf));
+			printf("Le port de la socket d'ecoute: %s \n", buf);
 		}
 
 		/* envoi du nombre de processus aux processus dsm*/
-
+		for (k = 0; k < num_procs; k++) {
+			sprintf(buf, "%d", num_procs);
+			write(proc_array[k].info.sockfd, buf, sizeof(buf));
+		}
 		/* envoi des rangs aux processus dsm */
-
+		for (k = 0; k < num_procs; k++) {
+			sprintf(buf, "%d", proc_array[k].info.rank);
+			write(proc_array[k].info.sockfd, buf, sizeof(buf));
+		}
 		/* envoi des infos de connexion aux processus */
 
 		/* gestion des E/S : on recupere les caracteres */
@@ -182,6 +215,9 @@ int main(int argc, char *argv[]) {
 		}
 
 		/* on attend les processus fils */
+		for (k = 0; k < num_procs; k++) {
+			wait(NULL);
+		}
 
 		/* on ferme les descripteurs proprement */
 		for (i = 0; i < 2 * num_procs; i++) {

@@ -7,16 +7,18 @@
 #include <errno.h>
 #include <string.h>
 #include <fcntl.h>
+#include <netinet/in.h>
 
 /* autres includes (eventuellement) */
 #define BACKLOG 20
 #define ERROR_EXIT(str) {perror(str);exit(EXIT_FAILURE);}
-
+#define MAXNAME 256
 /* definition du type des infos */
 /* de connexion des processus dsm */
 struct dsm_proc_conn  {
    int rank;
-   /* a completer */
+   char machine[MAXNAME];
+   int sockfd; //socket communiquée
 };
 typedef struct dsm_proc_conn dsm_proc_conn_t; 
 
@@ -24,7 +26,7 @@ typedef struct dsm_proc_conn dsm_proc_conn_t;
 /* d'identification des processus dsm */
 struct dsm_proc {   
   pid_t pid;
-  dsm_proc_conn_t connect_info;
+  dsm_proc_conn_t info;
 };
 typedef struct dsm_proc dsm_proc_t;
 

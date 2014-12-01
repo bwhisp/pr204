@@ -26,12 +26,12 @@ int creer_socket(int type, int *port_num) {
 /* qui pourraient etre utilisees par le lanceur */
 /* et le processus intermediaire. N'oubliez pas */
 /* de declarer le prototype de ces nouvelles */
-struct sockaddr_in init_addr (struct sockaddr_in addr_in) {
-	memset(&addr_in,0, sizeof(addr_in));
-	addr_in.sin_family = AF_INET;
-	addr_in.sin_port = 0; // 0: pour choisir un numero de port quelconque
-	addr_in.sin_addr.s_addr = htonl(INADDR_ANY);
+struct sockaddr_in init_addr (struct sockaddr_in addr) {
+	memset(&addr,0, sizeof(addr));
+	addr.sin_family = AF_INET;
+	addr.sin_port = 0; // 0: pour choisir un numero de port quelconque
+	addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	return addr_in;
+	return addr;
 }
 /* fonctions dans common_impl.h */
