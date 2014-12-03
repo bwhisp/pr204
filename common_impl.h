@@ -8,6 +8,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 /* autres includes (eventuellement) */
 #define BACKLOG 20
@@ -32,3 +33,4 @@ typedef struct dsm_proc dsm_proc_t;
 
 int creer_socket(int type, int *port_num);
 struct sockaddr_in init_addr (struct sockaddr_in addr_in);
+char *get_my_ip(void);
