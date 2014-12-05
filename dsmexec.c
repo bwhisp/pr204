@@ -6,7 +6,6 @@
 #include <poll.h>
 
 /* variables globales */
-#define MAXNAME 256
 
 /* un tableau gerant les infos d'identification */
 /* des processus dsm */
@@ -30,11 +29,15 @@ int main(int argc, char *argv[]) {
 	if (argc < 3) {
 		usage();
 	} else {
+
+		/*		Déclaration des variables		*/
 		pid_t pid;
 		int num_procs = 0;
-		int i = 0;
-		int port, k, r, listen_sock, nfds;
+		int * proc;
 		int fdout[2], fderr[2];
+		int port, listen_sock, nfds;
+		int i, k;								//utilisés pour les boucles for
+		int r;
 		char ** machines;
 		char ** newargv;
 		char *buf = malloc(MAXNAME);
@@ -56,7 +59,7 @@ int main(int argc, char *argv[]) {
 			if (fgetc(machinefile) == '\n')
 				num_procs++;
 		}
-		printf("Nombre de machines lues : %i\n", num_procs);
+		printf("[dsmexec] Nombre de machines lues : %i\n", num_procs);
 		fseek(machinefile, 0, SEEK_SET); //reprendre le fichier dés le début
 
 		machines = malloc(num_procs * MAXNAME);
@@ -69,14 +72,14 @@ int main(int argc, char *argv[]) {
 		while (!feof(machinefile)) // si on est pas à la fin du fichier
 		{
 			fscanf(machinefile, "%s\n", machines[i]);
-			printf("machine : %s num : %d\n", machines[i], i); // on affiche les noms pour tester
+			printf("[dsmexec] machine : %s num : %d\n", machines[i], i); // on affiche les noms pour tester
 			i++;
 		}
-		char *my_ip = get_my_ip();
+
 		/* creation de la socket d'ecoute */
 		/* + ecoute effective */
 		listen_sock = creer_socket(SOCK_STREAM, &port);
-		puts("Socket d'écoute initialisée");
+		puts("[dsmexec] Socket d'écoute initialisée");
 		printf("port %d \n", port);
 
 		/* On alloue la place nécessaire au stockage des fd des tubes que l'on créera*/
@@ -98,23 +101,10 @@ int main(int argc, char *argv[]) {
 
 			if (pid == 0) { /* fils */
 
-				free(proc_array); // car les fils ne s'en servent pas , cest le pere qui s'en charge
+				free(proc_array); // car les fils ne s'en servent pas, cest le pere qui s'en charge
 
-				/* redirection stderr */
-				close(fderr[0]);
-				close(STDERR_FILENO);
-				dup(fderr[1]);
-				close(fderr[1]);
-				puts("redirection stderr faite");
-
-				/* redirection stdout */
-				close(fdout[0]);
-				close(STDOUT_FILENO);
-				dup(fdout[1]);
-				close(fdout[1]);
-				puts("redirection stdout faite");
-
-				puts("arguments ssh");
+				/* Redirection de stderr et stdout*/
+				redirections(fderr, fdout);
 
 				/* Creation du tableau d'arguments pour le ssh */
 				newargv = malloc((argc + 4) * sizeof(char *));
@@ -122,7 +112,7 @@ int main(int argc, char *argv[]) {
 				newargv[0] = "ssh";
 				newargv[1] = machines[i];
 				newargv[2] = "./proj_sys/Phase1/bin/dsmwrap";
-				newargv[3] = my_ip;
+				newargv[3] = get_my_ip();
 				char temp[235];
 				sprintf(temp, "%d", ntohs(port));
 				newargv[4] = temp;
@@ -133,8 +123,7 @@ int main(int argc, char *argv[]) {
 				newargv[argc + 3] = NULL;
 
 				/* jump to new prog : */
-				puts("Execution de ssh");
-				fflush(stdout);
+				puts("[dsmexec] Execution de ssh");
 				execvp("ssh", newargv);
 
 			} else if (pid > 0) { /* pere */
@@ -158,8 +147,9 @@ int main(int argc, char *argv[]) {
 		for (i = 0; i < num_procs; i++) {
 
 			/* on accepte les connexions des processus dsm*/
-			proc_array[i].info.sockfd = accept(listen_sock, (struct sockaddr *) &c_addr, &addrlen);
-
+			proc_array[i].info.sockfd = accept(listen_sock,
+					(struct sockaddr *) &c_addr, &addrlen);
+			puts("Connexion acceptée");
 			// On rajoute la socket à notre tableau de descripteurs monitorés par poll
 			pfds[3 * i + 2].fd = proc_array[i].info.sockfd;
 			pfds[3 * i + 2].events = POLLIN | POLLHUP;
@@ -171,51 +161,79 @@ int main(int argc, char *argv[]) {
 			/* 1- d'abord la taille de la chaine */
 
 			/* 2- puis la chaine elle-meme */
-			read(proc_array[i].info.sockfd, buf, sizeof(buf));
-			printf("Le nom de la machine: %s \n", buf);
+			memset(buf, 0, MAXNAME);
+
+			do_read(proc_array[i].info.sockfd, buf);
+			printf("[Proc %i] Machine : %s \n", i, buf);
+			fflush(stdout);
 
 			/* On recupere le pid du processus distant  */
-			read(proc_array[i].info.sockfd, buf, sizeof(buf));
-			printf("Le pid du processus: %s \n", buf); // ??
+			memset(buf, 0, MAXNAME);
+			do_read(proc_array[i].info.sockfd, buf);
+			printf("[Proc %i : %s : stdout] pid : %s \n", i,
+					proc_array[i].info.machine, buf);
+			fflush(stdout);
 
 			/* On recupere le numero de port de la socket */
 			/* d'ecoute des processus distants */
-			read(proc_array[i].info.sockfd, buf, sizeof(buf));
-			printf("Le port de la socket d'ecoute: %s \n", buf);
+			memset(buf, 0, MAXNAME);
+			do_read(proc_array[i].info.sockfd, buf);
+			printf("[Proc %i : %s : stdout] port : %s \n", i,
+					proc_array[i].info.machine, buf);
+			fflush(stdout);
 		}
 
 		/* envoi du nombre de processus aux processus dsm*/
+		sprintf(buf, "%d", num_procs);
 		for (k = 0; k < num_procs; k++) {
-			sprintf(buf, "%d", num_procs);
-			write(proc_array[k].info.sockfd, buf, sizeof(buf));
+			do_write(proc_array[k].info.sockfd, buf);
 		}
+		memset(buf, 0, MAXNAME);
 		/* envoi des rangs aux processus dsm */
 		for (k = 0; k < num_procs; k++) {
 			sprintf(buf, "%d", proc_array[k].info.rank);
-			write(proc_array[k].info.sockfd, buf, sizeof(buf));
+			do_write(proc_array[k].info.sockfd, buf);
+			memset(buf, 0, MAXNAME);
 		}
 		/* envoi des infos de connexion aux processus */
 
 		/* gestion des E/S : on recupere les caracteres */
 		/* sur les tubes de redirection de stdout/stderr */
 		nfds = num_procs * 3;
+
+		/* Un tableau permettant de rappeler le numéro de rang manipulé dans le poll évoluant comme pfds*/
+		/* Utile lorsque un tube/socket est supprimé car le même memmove est effectué sur ce tableau*/
+		proc = malloc(nfds * sizeof(int));
+		for (k = 0; k < nfds; k++) {
+			proc[k] = k / 3;
+		}
+
 		while (1) {
 			/* je recupere les infos sur les tubes de redirection
 			 jusqu'à ce qu'ils soient inactifs (ie fermes par les
 			 processus dsm ecrivains de l'autre cote ...)*/
 			poll(pfds, nfds, -1);
+
 			for (i = 0; i < nfds; i++) {
+
 				if (pfds[i].revents == POLLIN) {
-					r = read(pfds[i].fd, buf, MAXNAME);
+					memset(buf, 0, MAXNAME);
+					r = do_read(pfds[i].fd, buf);
+
 					if (!r) {
-						perror("Erreur de lecture");
 						memmove(pfds + i, pfds + i + 1, nfds - (i + 1));
+						memmove(proc + i, proc + i + 1, nfds - (i + 1));
 						nfds--;
 					} else {
-						printf("Le message: %s \n", buf);
+						k = i / 3;
+						printf("[Proc %i : %s] %s \n", k,
+								proc_array[k].info.machine, buf);
+						fflush(stdout);
 					}
+
 				} else if (pfds[i].revents == POLLHUP) {
 					memmove(pfds + i, pfds + i + 1, nfds - (i + 1));
+					memmove(proc + i, proc + i + 1, nfds - (i + 1));
 					nfds--;
 				}
 

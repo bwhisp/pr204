@@ -3,15 +3,12 @@
 
 int main(int argc, char **argv) {
 
-	int l_sock;
-	int sock;
-	struct sockaddr_in * addr = malloc(sizeof(struct sockaddr_in));
+	int sock, l_sock;
+	int port;
+	int k;
 	char *buf = malloc(MAXNAME);
 	char ** newargv;
-	int k;
-	int port;
-
-	fflush(stdout);
+	struct sockaddr_in * addr = malloc(sizeof(struct sockaddr_in));
 
 	/* processus intermediaire pour "nettoyer" */
 	/* la liste des arguments qu'on va passer */
@@ -29,35 +26,26 @@ int main(int argc, char **argv) {
 			&& errno == ECONNREFUSED)
 		;
 
-	printf("connect \n");
-	fflush(stdout);
-
 	/* Envoi du nom de machine au lanceur */
-	gethostname(buf, sizeof(buf));
-	write(sock, buf, sizeof(buf));
+	gethostname(buf, MAXNAME);
+	do_write(sock, buf);
 
-	printf("%s \n", buf);
-	fflush(stdout);
+	/* Envoi de la taille du message d'abord */
+	/* Puis du message lui même */
 	/* Envoi du pid au lanceur */
 	sprintf(buf, "%d", getpid()); // On récupère le PID du processus distant
-	write(sock, buf, sizeof(buf));
+	do_write(sock, buf);
 
-	printf("pid \n");
-	fflush(stdout);
 	/* Creation de la socket d'ecoute pour les */
 	/* connexions avec les autres processus dsm */
 	l_sock = creer_socket(SOCK_STREAM, &port);
 
-	printf("sock \n");
-	fflush(stdout);
 	/* Envoi du numero de port au lanceur */
 	/* pour qu'il le propage à tous les autres */
 	/* processus dsm */
 	sprintf(buf, "%d", port); // On récupère le port de la socket d'ecoute
-	write(sock, buf, sizeof(buf));
+	do_write(sock, buf);
 
-	printf("port \n");
-	fflush(stdout);
 	/* on execute la bonne commande */
 	/* Creation du tableau d'arguments pour le ssh */
 	newargv = malloc((argc - 1) * MAXNAME);
@@ -68,11 +56,6 @@ int main(int argc, char **argv) {
 		newargv[k] = argv[k + 2];
 
 	newargv[argc - 2] = NULL;
-
-	for (k = 1; k < argc - 1; k++) {
-		printf("%i => %s", k, newargv[k]);
-		fflush(stdout);
-	}
 
 	/* jump to new prog : */
 	puts("Execution du prog");
