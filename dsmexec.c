@@ -12,7 +12,7 @@
 dsm_proc_t *proc_array = NULL;
 
 /* le nombre de processus effectivement crees */
-volatile int num_procs_creat = 0;
+volatile int num_procs = 0;
 
 void usage(void) {
 	fprintf(stdout, "Usage : dsmexec machine_file executable arg1 arg2 ...\n");
@@ -23,6 +23,8 @@ void usage(void) {
 void sigchld_handler(int sig) {
 	/* on traite les fils qui se terminent */
 	/* pour eviter les zombies */
+	while (waitpid((pid_t) -1, NULL, WNOHANG) > 0)
+		num_procs--;
 }
 
 int main(int argc, char *argv[]) {
@@ -32,7 +34,6 @@ int main(int argc, char *argv[]) {
 
 		/*		Déclaration des variables		*/
 		pid_t pid;
-		int num_procs = 0;
 		int * proc;
 		int fdout[2], fderr[2];
 		int port, listen_sock, nfds;
@@ -43,6 +44,7 @@ int main(int argc, char *argv[]) {
 		char *buf = malloc(MAXNAME);
 		struct pollfd * pfds;
 		struct sockaddr_in c_addr;
+		struct sigaction action;
 		socklen_t addrlen = (socklen_t) sizeof(struct sockaddr_in);
 
 		FILE * machinefile = fopen(argv[1], "r"); //ouvrir le fichier machinefile
@@ -52,6 +54,10 @@ int main(int argc, char *argv[]) {
 
 		/* Mise en place d'un traitant pour recuperer les fils zombies*/
 		/* XXX.sa_handler = sigchld_handler; */
+		memset(&action, 0, sizeof(action));
+		action.sa_handler = sigchld_handler;
+		action.sa_flags = SA_RESTART;
+		sigaction(SIGCHLD, &action, NULL);
 
 		/* lecture du fichier de machines */
 		/* 1- on recupere le nombre de processus a lancer */
@@ -66,11 +72,11 @@ int main(int argc, char *argv[]) {
 		for (i = 0; i < num_procs; i++) {
 			machines[i] = malloc(MAXNAME);
 		}
+
 		/* 2- on recupere les noms des machines : le nom de */
 		/* la machine est un des elements d'identification */
 		i = 0;
-		while (!feof(machinefile)) // si on est pas à la fin du fichier
-		{
+		while (!feof(machinefile)) { // si on est pas à la fin du fichier
 			fscanf(machinefile, "%s\n", machines[i]);
 			printf("[dsmexec] machine : %s num : %d\n", machines[i], i); // on affiche les noms pour tester
 			i++;
@@ -96,8 +102,9 @@ int main(int argc, char *argv[]) {
 				perror("Erreur tube fderr");
 
 			pid = fork();
-			if (pid == -1)
+			if (pid == -1) {
 				ERROR_EXIT("fork");
+			}
 
 			if (pid == 0) { /* fils */
 
@@ -141,9 +148,9 @@ int main(int argc, char *argv[]) {
 				proc_array[i].pid = pid;
 				sprintf(proc_array[i].info.machine, "%s", machines[i]);
 				proc_array[i].info.rank = i;
-				num_procs_creat++;
 			}
 		}
+
 		for (i = 0; i < num_procs; i++) {
 
 			/* on accepte les connexions des processus dsm*/
