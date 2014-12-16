@@ -10,6 +10,7 @@ int main(int argc, char **argv) {
 	char *buf = malloc(MAXNAME);
 	char ** newargv;
 	struct sockaddr_in * addr = malloc(sizeof(struct sockaddr_in));
+	dsm_proc_conn_t * machines;
 
 	/* processus intermediaire pour "nettoyer" */
 	/* la liste des arguments qu'on va passer */
@@ -44,12 +45,11 @@ int main(int argc, char **argv) {
 	/* Envoi du numero de port au lanceur */
 	/* pour qu'il le propage à tous les autres */
 	/* processus dsm */
-	sprintf(buf, "%d", port); // On récupère le port de la socket d'ecoute
+	sprintf(buf, "%d", port);
 	do_write(sock, buf);
 
 	/* Ici nous allons recuperer le nombre de processus total et le rang du processus */
 	/* envoyés précedemment par dsmexec et stocker tout ça dans des variables*/
-
 	memset(buf, 0, MAXNAME);
 	do_read(sock, buf);
 	nb_proc = atoi(buf);
@@ -57,6 +57,20 @@ int main(int argc, char **argv) {
 	memset(buf, 0, MAXNAME);
 	do_read(sock, buf);
 	my_rank = atoi(buf);
+
+	/*	Récupération des infos de connexion pour chaque processus et stockage dans un tableau	*/
+	machines = malloc(nb_proc * sizeof(dsm_proc_conn_t));
+
+	for (k = 0; k < nb_proc; k++) {
+		// Nom de la machine
+		memset(buf, 0, MAXNAME);
+		do_read(sock, buf);
+		sprintf(machines[k].machine, "%s", buf);
+		// Son port
+		memset(buf, 0, MAXNAME);
+		do_read(sock, buf);
+		machines[k].port = atoi(buf);
+	}
 
 	/* on execute la bonne commande */
 	/* Creation du tableau d'arguments pour le ssh */
@@ -70,11 +84,8 @@ int main(int argc, char **argv) {
 	newargv[argc - 3] = NULL;
 
 	/* jump to new prog : */
-	puts("Execution du prog");
-	fflush(stdout);
-
 	sleep(1);
-	if(execvp(argv[3], newargv) == -1)
+	if (execvp(argv[3], newargv) == -1)
 		perror("Deuxieme exec");
 
 	return 0;

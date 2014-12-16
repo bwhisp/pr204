@@ -157,17 +157,14 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-		memset(buf,0,MAXNAME);
-		read(pfds[0].fd,buf,MAXNAME);
-		printf("%s",buf);
-
 		for (i = 0; i < num_procs; i++) {
 
-			/* on accepte les connexions des processus dsm*/
+			/*	on accepte les connexions des processus dsm	*/
 			proc_array[i].info.sockfd = accept(listen_sock,
 					(struct sockaddr *) &c_addr, &addrlen);
 			puts("[dsmexec] Connexion acceptée");
-			// On rajoute la socket à notre tableau de descripteurs monitorés par poll
+
+			/*	On rajoute la socket à notre tableau de descripteurs monitorés par poll	*/
 			pfds[3 * i + 2].fd = proc_array[i].info.sockfd;
 			pfds[3 * i + 2].events = POLLIN;
 
@@ -177,7 +174,6 @@ int main(int argc, char *argv[]) {
 
 			/*  On recupere le nom de la machine distante */
 			/* 1- d'abord la taille de la chaine */
-
 			/* 2- puis la chaine elle-meme */
 			memset(buf, 0, MAXNAME);
 
@@ -201,7 +197,6 @@ int main(int argc, char *argv[]) {
 			printf("[Proc %i : %s : stdout] port : %i \n", i,
 					proc_array[i].info.machine, proc_array[i].info.port);
 			fflush(stdout);
-
 		}
 
 		/* envoi du nombre de processus aux processus dsm*/
@@ -210,13 +205,25 @@ int main(int argc, char *argv[]) {
 			do_write(proc_array[k].info.sockfd, buf);
 		}
 		memset(buf, 0, MAXNAME);
+
 		/* envoi des rangs aux processus dsm */
 		for (k = 0; k < num_procs; k++) {
 			sprintf(buf, "%d", proc_array[k].info.rank);
 			do_write(proc_array[k].info.sockfd, buf);
 			memset(buf, 0, MAXNAME);
 		}
+
 		/* envoi des infos de connexion aux processus */
+		for (k = 0; k < num_procs; k++) {  // Détermine le destinataire
+			for (i = 0; i < num_procs; i++) { // Détermine l'information à envoyer
+				// Envoi du nom de machine...
+				do_write(proc_array[k].info.sockfd, proc_array[i].info.machine);
+				// ...puis du port associé
+				sprintf(buf, "%d", proc_array[i].info.port);
+				do_write(proc_array[k].info.sockfd, buf);
+				memset(buf, 0, MAXNAME);
+			}
+		}
 
 		/* gestion des E/S : on recupere les caracteres */
 		/* sur les tubes de redirection de stdout/stderr */
@@ -224,6 +231,7 @@ int main(int argc, char *argv[]) {
 
 		/* Un tableau permettant de rappeler le numéro de rang manipulé dans le poll évoluant comme pfds*/
 		/* Utile lorsque un tube/socket est supprimé car le même memmove est effectué sur ce tableau*/
+		nfds = num_procs * 3;
 		proc = malloc(nfds * sizeof(int));
 		for (k = 0; k < nfds; k++) {
 			proc[k] = k / 3;
@@ -233,7 +241,7 @@ int main(int argc, char *argv[]) {
 			/* je recupere les infos sur les tubes de redirection
 			 jusqu'à ce qu'ils soient inactifs (ie fermes par les
 			 processus dsm ecrivains de l'autre cote ...)*/
-			if(poll(pfds, nfds, -1) == -1)
+			if (poll(pfds, nfds, -1) == -1)
 				perror("Poll error :");
 
 			for (i = 0; i < nfds; i++) {
@@ -267,7 +275,7 @@ int main(int argc, char *argv[]) {
 
 		/* on ferme les descripteurs proprement */
 		for (i = 0; i < 2 * num_procs; i++) {
-//			close(pfds[i].fd);
+			close(pfds[i].fd);
 		}
 		free(pfds);
 		free(buf);
