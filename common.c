@@ -32,22 +32,6 @@ int creer_socket(int type, int *port_num) {
 }
 
 /*	Récuperer l'adresse IP de notre machine dans une chaine de caractère	*/
-char *get_my_ip(void) {
-
-	char s[256];
-	if (!gethostname(s, sizeof s)) {
-		struct hostent *host = gethostbyname(s);
-		if (host != NULL) {
-			struct in_addr **adr;
-			for (adr = (struct in_addr **) host->h_addr_list; *adr; adr++) {
-				return inet_ntoa(**adr);
-			}
-		}
-	}
-	return NULL;
-}
-
-//Ajout
 char *get_ip(const char * s) {
 
 	struct hostent *host = gethostbyname(s);
@@ -59,7 +43,6 @@ char *get_ip(const char * s) {
 	}
 	return NULL;
 }
-// Fin ajout
 
 struct sockaddr_in init_addr(struct sockaddr_in addr) {
 	memset(&addr, 0, sizeof(addr));
