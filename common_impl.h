@@ -21,6 +21,7 @@ struct dsm_proc_conn  {
    int rank;
    char machine[MAXNAME];
    int sockfd; //socket communiquée
+   int port;
 };
 typedef struct dsm_proc_conn dsm_proc_conn_t; 
 
@@ -38,5 +39,7 @@ char *get_my_ip(void);
 
 ssize_t do_read(int fd, char * buf);
 int do_write(int fd, void * buf);
-
+// pour recuperer l'@Ip à partir du hostname passé en argument à dsmwrap
+char *get_ip(const char * s) ;
 void redirections(int fderr[2],int fdout[2]);
+

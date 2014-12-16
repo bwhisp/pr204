@@ -31,7 +31,6 @@ int creer_socket(int type, int *port_num) {
 	return fd;
 }
 
-
 /*	Récuperer l'adresse IP de notre machine dans une chaine de caractère	*/
 char *get_my_ip(void) {
 
@@ -48,6 +47,19 @@ char *get_my_ip(void) {
 	return NULL;
 }
 
+//Ajout
+char *get_ip(const char * s) {
+
+	struct hostent *host = gethostbyname(s);
+	if (host != NULL) {
+		struct in_addr **adr;
+		for (adr = (struct in_addr **) host->h_addr_list; *adr; adr++) {
+			return inet_ntoa(**adr);
+		}
+	}
+	return NULL;
+}
+// Fin ajout
 
 struct sockaddr_in init_addr(struct sockaddr_in addr) {
 	memset(&addr, 0, sizeof(addr));
@@ -64,34 +76,38 @@ ssize_t do_read(int fd, char * buf) {
 	ssize_t r;
 	char *taille = malloc(sizeof(size_t));
 
-	rl = read(fd,taille,sizeof(size_t));
-	if (rl == 0){
+	rl = read(fd, taille, sizeof(size_t));
+	if (rl == 0) {
 		return 0;
 	}
-	r=read(fd, buf,(size_t) atoi(taille));
+	r = read(fd, buf, (size_t) atoi(taille));
 	return r;
 }
 
 int do_write(int fd, void * buf) {
 	char *taille = malloc(sizeof(size_t));
 	size_t len = strlen(buf);
-	sprintf(taille, "%d", (int)len);
+
+	sprintf(taille, "%d", (int) len);
 	write(fd, taille, sizeof(size_t));
+
 	write(fd, buf, len);
+
 	return 0;
 }
 
-
-void redirections(int fderr[2],int fdout[2]) {
-	/* redirection stderr */
+void redirections(int fderr[2], int fdout[2]) {
+	/* fermeture des extremités inutiles */
 	close(fderr[0]);
+	close(fdout[0]);
+
+	/* redirection stderr */
 	close(STDERR_FILENO);
 	dup(fderr[1]);
 	close(fderr[1]);
 	puts("[dsmexec] Redirection stderr faite");
 
 	/* redirection stdout */
-	close(fdout[0]);
 	close(STDOUT_FILENO);
 	dup(fdout[1]);
 	close(fdout[1]);
