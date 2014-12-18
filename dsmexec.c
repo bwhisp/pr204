@@ -40,15 +40,15 @@ int main(int argc, char *argv[]) {
 		int * proc;
 		int fdout[2], fderr[2];
 		int port, listen_sock, nfds;
-		int i, k;								//utilisés pour les boucles for
+		int i, k;							//utilisés pour les boucles for
 		int r;
 		char ** machines;
 		char ** newargv;
 		char temp[10];
 		char *buf = malloc(MAXNAME);
 		struct pollfd * pfds;
-		struct sockaddr_in c_addr;
 		struct sigaction action;
+		struct sockaddr_in c_addr;
 		socklen_t addrlen = (socklen_t) sizeof(struct sockaddr_in);
 
 		FILE * machinefile = fopen(argv[1], "r"); //ouvrir le fichier machinefile
@@ -136,7 +136,8 @@ int main(int argc, char *argv[]) {
 				newargv[argc + 3] = NULL;
 
 				/* jump to new prog : */
-				puts("[dsmexec] Execution de ssh");
+				printf("[dsmexec : %s] Execution de ssh\n", machines[i]);
+				fflush(stdout);
 				execvp("ssh", newargv);
 
 			} else if (pid > 0) { /* pere */
@@ -202,14 +203,14 @@ int main(int argc, char *argv[]) {
 		/* envoi du nombre de processus aux processus dsm*/
 		sprintf(buf, "%d", num_procs);
 		for (k = 0; k < num_procs; k++) {
-			do_write(proc_array[k].info.sockfd, buf);
+			do_send(proc_array[k].info.sockfd, buf);
 		}
 		memset(buf, 0, MAXNAME);
 
 		/* envoi des rangs aux processus dsm */
 		for (k = 0; k < num_procs; k++) {
 			sprintf(buf, "%d", proc_array[k].info.rank);
-			do_write(proc_array[k].info.sockfd, buf);
+			do_send(proc_array[k].info.sockfd, buf);
 			memset(buf, 0, MAXNAME);
 		}
 
@@ -217,10 +218,10 @@ int main(int argc, char *argv[]) {
 		for (k = 0; k < num_procs; k++) {  // Détermine le destinataire
 			for (i = 0; i < num_procs; i++) { // Détermine l'information à envoyer
 				// Envoi du nom de machine...
-				do_write(proc_array[k].info.sockfd, proc_array[i].info.machine);
+				do_send(proc_array[k].info.sockfd, proc_array[i].info.machine);
 				// ...puis du port associé
 				sprintf(buf, "%d", proc_array[i].info.port);
-				do_write(proc_array[k].info.sockfd, buf);
+				do_send(proc_array[k].info.sockfd, buf);
 				memset(buf, 0, MAXNAME);
 			}
 		}

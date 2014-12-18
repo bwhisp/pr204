@@ -79,6 +79,18 @@ int do_write(int fd, void * buf) {
 	return 0;
 }
 
+int do_send(int fd, void * buf) {
+	char *taille = malloc(sizeof(size_t));
+	size_t len = strlen(buf);
+
+	sprintf(taille, "%d", (int) len);
+	send(fd, taille, sizeof(size_t),0);
+
+	send(fd, buf, len,0);
+
+	return 0;
+}
+
 void redirections(int fderr[2], int fdout[2]) {
 	/* fermeture des extremités inutiles */
 	close(fderr[0]);

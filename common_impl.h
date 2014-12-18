@@ -15,6 +15,7 @@
 #define BACKLOG 20
 #define ERROR_EXIT(str) {perror(str);exit(EXIT_FAILURE);}
 #define MAXNAME 256
+
 /* definition du type des infos */
 /* de connexion des processus dsm */
 struct dsm_proc_conn  {
@@ -41,4 +42,4 @@ int do_write(int fd, void * buf);
 // pour recuperer l'@Ip à partir du hostname passé en argument à dsmwrap
 char *get_ip(const char * s) ;
 void redirections(int fderr[2],int fdout[2]);
-
+int do_send(int fd, void * buf);

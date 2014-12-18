@@ -11,7 +11,7 @@ CFLAGS  =   -DREENTRANT -Wunused -Wall -g
 CCFLAGS = $(CFLAGS)
 LIBS =  -lpthread
 
-EXECS = common.o dsmexec dsmwrap truc 
+EXECS = common.o dsmexec dsmwrap truc exemple
 
 default: $(EXECS)
 
@@ -26,6 +26,10 @@ dsmwrap: dsmwrap.o common.o
 truc: truc.o 
 	$(CLINKER) $(OPTFLAGS) -o truc truc.o common.o $(LIBS)	
 	mv truc ./bin
+
+exemple: exemple.o dsm.o 
+	$(CLINKER) $(OPTFLAGS) -o exemple exemple.o dsm.o common.o $(LIBS)
+	mv exemple ./bin
 	
 clean:
 	@-/bin/rm -f *.o *~ PI* $(EXECS) *.out core 

@@ -7,10 +7,11 @@ int main(int argc, char **argv) {
 	int port;
 	int k;
 	int nb_proc, my_rank;
+	int nb_arg;
 	char *buf = malloc(MAXNAME);
 	char ** newargv;
 	struct sockaddr_in * addr = malloc(sizeof(struct sockaddr_in));
-	dsm_proc_conn_t * machines;
+//	dsm_proc_conn_t * machines;
 
 	/* processus intermediaire pour "nettoyer" */
 	/* la liste des arguments qu'on va passer */
@@ -50,31 +51,34 @@ int main(int argc, char **argv) {
 
 	/* Ici nous allons recuperer le nombre de processus total et le rang du processus */
 	/* envoyés précedemment par dsmexec et stocker tout ça dans des variables*/
-	memset(buf, 0, MAXNAME);
-	do_read(sock, buf);
-	nb_proc = atoi(buf);
+//	memset(buf, 0, MAXNAME);
+//	do_read(sock, buf);
+//	nb_proc = atoi(buf);
 
-	memset(buf, 0, MAXNAME);
-	do_read(sock, buf);
-	my_rank = atoi(buf);
+//	memset(buf, 0, MAXNAME);
+//	do_read(sock, buf);
+//	my_rank = atoi(buf);
 
 	/*	Récupération des infos de connexion pour chaque processus et stockage dans un tableau	*/
-	machines = malloc(nb_proc * sizeof(dsm_proc_conn_t));
+//	machines = malloc(nb_proc * sizeof(dsm_proc_conn_t));
+	/*
+	 for (k = 0; k < nb_proc; k++) {
+	 // Nom de la machine
+	 memset(buf, 0, MAXNAME);
+	 do_read(sock, buf);
+	 sprintf(machines[k].machine, "%s", buf);
+	 // Son port
+	 memset(buf, 0, MAXNAME);
+	 do_read(sock, buf);
+	 machines[k].port = atoi(buf);
 
-	for (k = 0; k < nb_proc; k++) {
-		// Nom de la machine
-		memset(buf, 0, MAXNAME);
-		do_read(sock, buf);
-		sprintf(machines[k].machine, "%s", buf);
-		// Son port
-		memset(buf, 0, MAXNAME);
-		do_read(sock, buf);
-		machines[k].port = atoi(buf);
-	}
+	 // Attribution des ranks (ils correspondent à l'ordre dans le tableau par un heureux hasard)
+	 machines[k].rank = k;
+	 }
+	 */
 
-	/* on execute la bonne commande */
-	/* Creation du tableau d'arguments pour le ssh */
-	newargv = malloc((argc - 3) * MAXNAME);
+
+	newargv = malloc(argc - 3);
 
 	newargv[0] = argv[3];
 
