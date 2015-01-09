@@ -176,10 +176,9 @@ int main(int argc, char *argv[]) {
 			/*  On recupere le nom de la machine distante */
 			/* 1- d'abord la taille de la chaine */
 			/* 2- puis la chaine elle-meme */
-			memset(buf, 0, MAXNAME);
-
-			do_read(proc_array[i].info.sockfd, buf);
-			printf("[Proc %i] Machine : %s \n", i, buf);
+			memset(proc_array[i].info.machine, 0, MAXNAME);
+			do_read(proc_array[i].info.sockfd, proc_array[i].info.machine);
+			printf("[Proc %i] Machine : %s \n", i, proc_array[i].info.machine);
 			fflush(stdout);
 
 			/* On recupere le pid du processus distant  */
@@ -209,7 +208,8 @@ int main(int argc, char *argv[]) {
 
 		/* envoi des rangs aux processus dsm */
 		for (k = 0; k < num_procs; k++) {
-			sprintf(buf, "%d", proc_array[k].info.rank);
+			printf("rank to be sent %i \n",proc_array[k].info.rank);
+			sprintf(buf, "%d", k);
 			do_send(proc_array[k].info.sockfd, buf);
 			memset(buf, 0, MAXNAME);
 		}
@@ -242,7 +242,7 @@ int main(int argc, char *argv[]) {
 			/* je recupere les infos sur les tubes de redirection
 			 jusqu'à ce qu'ils soient inactifs (ie fermes par les
 			 processus dsm ecrivains de l'autre cote ...)*/
-			if (poll(pfds, nfds, -1) == -1)
+			if (poll(pfds, nfds, -1) == -1 && errno!=EINTR)
 				perror("Poll error :");
 
 			for (i = 0; i < nfds; i++) {

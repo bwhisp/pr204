@@ -51,6 +51,7 @@ int main(int argc, char **argv) {
 
 	/* Ici nous allons recuperer le nombre de processus total et le rang du processus */
 	/* envoyés précedemment par dsmexec et stocker tout ça dans des variables*/
+	// Le code suivant commenté est fait dans dsm.c
 //	memset(buf, 0, MAXNAME);
 //	do_read(sock, buf);
 //	nb_proc = atoi(buf);
@@ -72,8 +73,6 @@ int main(int argc, char **argv) {
 	 do_read(sock, buf);
 	 machines[k].port = atoi(buf);
 
-	 // Attribution des ranks (ils correspondent à l'ordre dans le tableau par un heureux hasard)
-	 machines[k].rank = k;
 	 }
 	 */
 

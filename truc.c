@@ -27,5 +27,6 @@ int main(int argc, char *argv[])
 
    fflush(stdout);
    fflush(stderr);
+   sleep(1);
    return 0;
 }
