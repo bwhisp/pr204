@@ -49,20 +49,21 @@ int main(int argc, char **argv) {
 	sprintf(buf, "%d", port);
 	do_write(sock, buf);
 
-	/* Ici nous allons recuperer le nombre de processus total et le rang du processus */
-	/* envoyés précedemment par dsmexec et stocker tout ça dans des variables*/
-	// Le code suivant commenté est fait dans dsm.c
-//	memset(buf, 0, MAXNAME);
-//	do_read(sock, buf);
-//	nb_proc = atoi(buf);
+	/* Le code suivant est effectué dans dsm.c
+	// Ici nous allons recuperer le nombre de processus total et le rang du processus
+	// envoyés précedemment par dsmexec et stocker tout ça dans des variables
+	 Le code suivant commenté est fait dans dsm.c
+	memset(buf, 0, MAXNAME);
+	do_read(sock, buf);
+	nb_proc = atoi(buf);
 
-//	memset(buf, 0, MAXNAME);
-//	do_read(sock, buf);
-//	my_rank = atoi(buf);
+	memset(buf, 0, MAXNAME);
+	do_read(sock, buf);
+	my_rank = atoi(buf);
 
-	/*	Récupération des infos de connexion pour chaque processus et stockage dans un tableau	*/
-//	machines = malloc(nb_proc * sizeof(dsm_proc_conn_t));
-	/*
+	//	Récupération des infos de connexion pour chaque processus et stockage dans un tableau
+	machines = malloc(nb_proc * sizeof(dsm_proc_conn_t));
+
 	 for (k = 0; k < nb_proc; k++) {
 	 // Nom de la machine
 	 memset(buf, 0, MAXNAME);
@@ -75,7 +76,6 @@ int main(int argc, char **argv) {
 
 	 }
 	 */
-
 
 	newargv = malloc(argc - 3);
 

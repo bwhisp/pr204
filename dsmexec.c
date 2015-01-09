@@ -208,7 +208,6 @@ int main(int argc, char *argv[]) {
 
 		/* envoi des rangs aux processus dsm */
 		for (k = 0; k < num_procs; k++) {
-			printf("rank to be sent %i \n",proc_array[k].info.rank);
 			sprintf(buf, "%d", k);
 			do_send(proc_array[k].info.sockfd, buf);
 			memset(buf, 0, MAXNAME);
@@ -247,11 +246,11 @@ int main(int argc, char *argv[]) {
 
 			for (i = 0; i < nfds; i++) {
 
-				if (pfds[i].revents & POLLIN) {
+				if (pfds[i].revents & POLLIN) { // On peut lire dans le descripteur
 					memset(buf, 0, MAXNAME);
 					r = read(pfds[i].fd, buf, MAXNAME);
 
-					if (!r) {
+					if (!r) { // read renvoie 0 on enleve le fd du tableau à surveiller
 						memmove(pfds + i, pfds + i + 1, nfds - (i + 1));
 						memmove(proc + i, proc + i + 1, nfds - (i + 1));
 						nfds--;
@@ -261,7 +260,7 @@ int main(int argc, char *argv[]) {
 						fflush(stdout);
 					}
 
-				} else if (pfds[i].revents & POLLHUP) {
+				} else if (pfds[i].revents & POLLHUP) { // Le descripteur n'existe plus, on l'enlève du tableau à monitorer
 					memmove(pfds + i, pfds + i + 1, nfds - (i + 1));
 					memmove(proc + i, proc + i + 1, nfds - (i + 1));
 					nfds--;
@@ -269,6 +268,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
+// Le code suivant n'est jamais executé il faudrait enlever if(num_procs==0) exit(0); du traitant et remplacer 1 par num_procs>0 dans le while du poll
 		/* on attend les processus fils */
 		for (k = 0; k < num_procs; k++) {
 			wait(NULL);
